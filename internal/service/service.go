@@ -72,7 +72,119 @@ func (s *UserService) Login(ctx context.Context, request models.LoginRequest) (t
 	if err != nil {
 		return "", err
 	}
-
 	return token, nil
+}
 
+func (s *UserService) GetMe(ctx context.Context, userID int64) (user models.User, err error) {
+	return s.repo.GetByID(ctx, userID)
+}
+
+func (s *UserService) UpdateMe(ctx context.Context, userID int, request models.UpdateRequest) error {
+	err := request.Validate()
+	if err != nil {
+		return err
+	}
+
+	user := models.User{
+		ID:    userID,
+		Name:  request.Name,
+		Phone: request.Phone,
+	}
+
+	err = s.repo.Update(ctx, user)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *UserService) DeleteMe(ctx context.Context, userID int64) error {
+	err := s.repo.Delete(ctx, userID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *UserService) CreateOrder(ctx context.Context, userID int, request models.CreateOrderRequest) error {
+	if err := request.Validate(); err != nil {
+		return err
+	}
+
+	err := s.repo.CreateOrder(ctx, userID, request.Description, request.Amount)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *UserService) GetMyOrders(ctx context.Context, userID int) ([]models.Order, error) {
+	return s.repo.GetOrdersByUserID(ctx, userID)
+}
+
+func (s *UserService) GetOrderByID(ctx context.Context, orderID int, userID int) (models.Order, error) {
+	order, err := s.repo.GetOrderByID(ctx, orderID)
+	if err != nil {
+		return models.Order{}, err
+	}
+
+	if order.UserID != userID {
+		return models.Order{}, errors.New("Error")
+	}
+
+	return order, nil
+}
+
+func (s *UserService) UpdateOrder(ctx context.Context, orderID int, userID int, request models.UpdateOrderRequest) error {
+	if err := request.Validate(); err != nil {
+		return err
+	}
+
+	order, err := s.repo.GetOrderByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+
+	if order.UserID != userID {
+		return errors.New("Error")
+	}
+
+	order.Description = request.Description
+	order.Amount = request.Amount
+	order.Status = request.Status
+
+	err = s.repo.UpdateOrder(ctx, order)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *UserService) DeleteOrder(ctx context.Context, orderID int, userID int) error {
+	order, err := s.repo.GetOrderByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+
+	if order.UserID != userID {
+		return errors.New("Error")
+	}
+
+	err = s.repo.DeleteOrder(ctx, orderID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *UserService) AdminGetAllUsers(ctx context.Context) ([]models.User, error) {
+	return s.repo.AdminGetAllUsers(ctx)
+}
+
+func (s *UserService) AdminGetAllOrders(ctx context.Context) ([]models.Order, error) {
+	return s.repo.AdminGetAllOrders(ctx)
+}
+
+func (s *UserService) AdminUpdateRole(ctx context.Context, targetUserID int, role string) error {
+	return s.repo.AdminUpdateRole(ctx, targetUserID, role)
 }

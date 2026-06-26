@@ -18,18 +18,33 @@ func main() {
 	defer cancel()
 	pool, err := pgxpool.New(ctx, fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s",
-		"localhost", 5432, "user123", "123", "postgres"))
+		"localhost", 5432, "postgres", "20102010", "task"))
 	if err != nil {
 		log.Fatal("Failed to connect to database", err)
 	}
 
 	userRepository := repository.NewUserRepository(pool)
 	userService := service.NewUserService(userRepository)
-	userHandler := handlers.NewUserHandler(userService)
+	userHandler := handler.NewUserHandler(userService)
+
+	middleware := handler.New(userRepository)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /register", userHandler.Register)
-
+	mux.Handle("POST /register", http.HandlerFunc(userHandler.Register))
+	mux.Handle("POST /login", http.HandlerFunc(userHandler.Login))
+	mux.Handle("POST /get/me", middleware.Auth(http.HandlerFunc(userHandler.GetMe)))
+	mux.Handle("PUT /update/me", middleware.Auth(http.HandlerFunc(userHandler.UpdateMe)))
+	mux.Handle("DELETE /delete/me", middleware.Auth(http.HandlerFunc(userHandler.DeleteMe)))
+	mux.Handle("POST /orders", middleware.Auth(http.HandlerFunc(userHandler.CreateOrder)))
+	mux.Handle("GET /orders", middleware.Auth(http.HandlerFunc(userHandler.GetMyOrders)))
+	mux.Handle("GET /orders/{id}", middleware.Auth(http.HandlerFunc(userHandler.GetOrderByID)))
+	mux.Handle("PUT /orders/{id}", middleware.Auth(http.HandlerFunc(userHandler.UpdateOrder)))
+	mux.Handle("DELETE /orders/{id}", middleware.Auth(http.HandlerFunc(userHandler.DeleteOrder)))
+	mux.Handle("GET /admin/users", middleware.AuthAdmin(http.HandlerFunc(userHandler.AdminGetAllUsers)))
+	mux.Handle("GET /admin/orders", middleware.AuthAdmin(http.HandlerFunc(userHandler.AdminGetAllOrders)))
+	mux.Handle("PATCH /admin/users/{id}/role", middleware.AuthAdmin(http.HandlerFunc(userHandler.AdminUpdateUserRole)))
+	
+	
 	server := &http.Server{
 		Addr:    ":8080",
 		Handler: mux,

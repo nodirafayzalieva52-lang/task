@@ -25,4 +25,3 @@ func Compare(hash, password string) error {
 	}
 	return nil
 }
-
