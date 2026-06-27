@@ -325,7 +325,7 @@ func (h *UserHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) GetUserAndOrders(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("user_id").(int)
 
-	user, orders, err := h.service.GetUserAndOrders(r.Context(), userID)
+	res, err := h.service.GetUserAndOrders(r.Context(), userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -337,10 +337,10 @@ func (h *UserHandler) GetUserAndOrders(w http.ResponseWriter, r *http.Request) {
 		Email  string         `json:"email"`
 		Orders []models.Order `json:"orders"`
 	}{
-		ID:     user.ID,
-		Name:   user.Name,
-		Email:  user.Email,
-		Orders: orders,
+		ID:     res.User.ID,
+		Name:   res.User.Name,
+		Email:  res.User.Email,
+		Orders: res.Orders,
 	}
 
 	json.NewEncoder(w).Encode(response)
