@@ -274,3 +274,74 @@ func (h *UserHandler) AdminUpdateUserRole(w http.ResponseWriter, r *http.Request
 
 	w.WriteHeader(http.StatusOK)
 }
+
+func (h *UserHandler) UpdateUserPassword(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(internalCtx.UserIDKey).(int64)
+	if !ok {
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
+
+	if userID == 0 {
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
+
+	var request models.UpdateUserPassword
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = h.service.UpdateUserPassword(r.Context(), userID, request)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *UserHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id").(int)
+
+	idStr := r.PathValue("id")
+	orderID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	err = h.service.CancelOrder(r.Context(), orderID, userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *UserHandler) GetUserAndOrders(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id").(int)
+
+	user, orders, err := h.service.GetUserAndOrders(r.Context(), userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := struct {
+		ID     int            `json:"id"`
+		Name   string         `json:"name"`
+		Email  string         `json:"email"`
+		Orders []models.Order `json:"orders"`
+	}{
+		ID:     user.ID,
+		Name:   user.Name,
+		Email:  user.Email,
+		Orders: orders,
+	}
+
+	json.NewEncoder(w).Encode(response)
+}

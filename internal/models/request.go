@@ -76,3 +76,15 @@ func (r *UpdateRoleRequest) Validate() error {
 	}
 	return nil
 }
+
+type UpdateUserPassword struct {
+	OldPassword string `json:"old_password"` 
+	NewPassword string `json:"new_password"` 
+}
+
+func (r *UpdateUserPassword) Validate() error {
+	if r.OldPassword == "" || r.NewPassword == ""{
+		return errors.New("Validation error: invalid password")
+	}
+	return nil
+}

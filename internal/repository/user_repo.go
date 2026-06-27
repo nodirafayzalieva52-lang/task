@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -278,3 +279,34 @@ func (r *UserRepository) AdminUpdateRole(ctx context.Context, id int, role strin
 	}
 	return nil
 }
+
+func (r *UserRepository) UpdateUserPassword(ctx context.Context, id int64,password string) error {
+	const query = `UPDATE users SET password = $1 WHERE id = $2 AND deleted_at IS NULL` 
+
+	rows, err := r.db.Exec(ctx, query, password, id)
+	if err != nil {
+		return err
+	}
+
+	if rows.RowsAffected() == 0 {
+		return errors.New("User not found")
+	}
+
+	return nil
+}
+
+func (r *UserRepository) UpdateOrderStatus(ctx context.Context, id int64, status string) error {
+	const query = `UPDATE orders SET status = $1 WHERE id = $2`
+
+	rows, err := r.db.Exec(ctx, query, status,id)
+	if err != nil {
+		return err
+	}
+
+	if rows.RowsAffected() == 0 {
+		return errors.New("Order not found")
+	}
+	return nil
+}
+
+

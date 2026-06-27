@@ -188,3 +188,62 @@ func (s *UserService) AdminGetAllOrders(ctx context.Context) ([]models.Order, er
 func (s *UserService) AdminUpdateRole(ctx context.Context, targetUserID int, role string) error {
 	return s.repo.AdminUpdateRole(ctx, targetUserID, role)
 }
+
+func (s *UserService) UpdateUserPassword(ctx context.Context, userID int64, request models.UpdateUserPassword) error {
+	err := request.Validate()
+	if err != nil {
+		return err
+	}
+
+	user, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		return errors.New("Internal error")
+	}
+	err = password.Compare(user.Password, request.OldPassword)
+	if err != nil {
+		return err
+	}
+
+	newPassword,err := password.Hash(request.NewPassword)
+	if err != nil {
+		return err
+	}
+
+	err = s.repo.UpdateUserPassword(ctx, userID,newPassword)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *UserService) CancelOrder(ctx context.Context, orderID int, userID int) error {
+	order, err := s.repo.GetOrderByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+
+	if order.UserID != userID {
+		return errors.New("access denied")
+	}
+
+	if order.Status == "paid" || order.Status == "completed" {
+		return errors.New("cannot cancel paid or completed order")
+	}
+
+	return s.repo.UpdateOrderStatus(ctx, int64(orderID), "cancelled")
+}
+
+func (s *UserService) GetUserAndOrders(ctx context.Context, userID int) (models.UserAndOrders, error) {
+	var response models.UserAndOrders
+	var err error
+	response.User, err = s.repo.GetByID(ctx, int64(userID))
+	if err != nil {
+		return models.UserAndOrders{},err
+	}
+
+	response.Orders, err = s.repo.GetOrdersByUserID(ctx, userID)
+	if err != nil {
+		return models.UserAndOrders{}, err
+	}
+	return response, nil
+}

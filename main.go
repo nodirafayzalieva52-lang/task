@@ -43,6 +43,9 @@ func main() {
 	mux.Handle("GET /admin/users", middleware.AuthAdmin(http.HandlerFunc(userHandler.AdminGetAllUsers)))
 	mux.Handle("GET /admin/orders", middleware.AuthAdmin(http.HandlerFunc(userHandler.AdminGetAllOrders)))
 	mux.Handle("PATCH /admin/users/{id}/role", middleware.AuthAdmin(http.HandlerFunc(userHandler.AdminUpdateUserRole)))
+	mux.Handle("PUT /users/change-password", middleware.Auth(http.HandlerFunc(userHandler.UpdateUserPassword)))
+	mux.Handle("PATCH /orders/{id}/cancel", middleware.Auth(http.HandlerFunc(userHandler.CancelOrder)))
+	mux.Handle("GET /users/profile", middleware.Auth(http.HandlerFunc(userHandler.)))
 	
 	
 	server := &http.Server{
