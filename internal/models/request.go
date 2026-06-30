@@ -88,3 +88,15 @@ func (r *UpdateUserPassword) Validate() error {
 	}
 	return nil
 }
+
+type VerifyRequest struct {
+	Email string `json:"email"`
+	Otp string `json:"otp"`
+}
+
+func (r *VerifyRequest) Validate() error {
+	if r.Email == "" || r.Otp == "" {
+		return errors.New("Validation error: email and otp are required")
+	}
+	return nil
+}

@@ -20,7 +20,7 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 	}
 }
 
-func (r *UserRepository) 	ExistsByEmail(ctx context.Context, email string) (bool, error) {
+func (r *UserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
 	const query = `
 		SELECT EXISTS (
 			SELECT 1

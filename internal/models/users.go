@@ -14,6 +14,8 @@ type User struct {
 	Email     string
 	Password  string
 	Role      string
+	OtpCode   string
+	AttemptOTP int
 	CreatedAt time.Time
 }
 

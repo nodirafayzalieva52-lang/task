@@ -3,21 +3,29 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"project/internal/models"
 	"project/internal/repository"
+	"project/internal/utils"
+	"project/pkg/cache"
 	"project/pkg/jwt"
 	"project/pkg/password"
+	smtp2 "project/pkg/smtp"
 )
 
 type UserService struct {
 	repo *repository.UserRepository
+	cache cache.MemoryCache
+	smtp  *smtp2.SMTP
 }
 
-func NewUserService(repo *repository.UserRepository) *UserService {
-	return &UserService{repo: repo}
+func NewUserService(repo *repository.UserRepository, cache cache.MemoryCache, smtp *smtp2.SMTP) *UserService {
+	return &UserService{repo: repo,
+	cache: cache,
+	smtp: smtp,
+	}
 }
-
 func (s *UserService) Register(ctx context.Context, request models.RegisterRequest) error {
 	if err := request.Validate(); err != nil {
 		return err
@@ -32,7 +40,18 @@ func (s *UserService) Register(ctx context.Context, request models.RegisterReque
 		return errors.New("user with this email already exists")
 	}
 
+	_, ok := s.cache.Get(request.Email)
+	if ok {
+		return errors.New("user with this email already exists")
+	}
+
 	passwordHash, err := password.Hash(request.Password)
+	if err != nil {
+		return err
+	}
+
+	otp := utils.GenerateOTP()
+	err = s.smtp.SendOTP(ctx, request.Email, otp)
 	if err != nil {
 		return err
 	}
@@ -42,13 +61,10 @@ func (s *UserService) Register(ctx context.Context, request models.RegisterReque
 		Email:    request.Email,
 		Password: passwordHash,
 		Role:     models.UserRole,
+		OtpCode:  otp,
 	}
 
-	err = s.repo.Add(ctx, user)
-	if err != nil {
-		return err
-	}
-
+	s.cache.Set(request.Email, user, time.Minute*5)
 	return nil
 }
 
@@ -246,4 +262,39 @@ func (s *UserService) GetUserAndOrders(ctx context.Context, userID int) (models.
 		return models.UserAndOrders{}, err
 	}
 	return response, nil
+}
+
+
+func (s *UserService) Verify(ctx context.Context, request models.VerifyRequest) error {
+	err := request.Validate()
+	if err != nil {
+		return err
+	}
+
+	cacheInfo, ok := s.cache.Get(request.Email)
+	if !ok {
+		return errors.New("user not found")
+	}
+
+	user, ok := cacheInfo.(models.User) //type assertion interface -> models.User
+	if !ok {
+		return errors.New("user not found")
+	}
+
+	if user.AttemptOTP >= 3 {
+		return errors.New("user is too many attempts")
+	}
+
+	if request.Otp != user.OtpCode {
+		user.AttemptOTP++
+		s.cache.Set(request.Email, user, time.Minute*5)
+		return errors.New("invalid otp")
+	}
+
+	err = s.repo.Add(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

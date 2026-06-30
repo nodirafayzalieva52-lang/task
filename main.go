@@ -11,6 +11,8 @@ import (
 	"project/handlers"
 	"project/internal/repository"
 	"project/internal/service"
+	cache2 "project/pkg/cache"
+	smtp2 "project/pkg/smtp"
 )
 
 func main() {
@@ -23,14 +25,19 @@ func main() {
 		log.Fatal("Failed to connect to database", err)
 	}
 
+	cache := cache2.NewMemoryCache()
+	smtp := smtp2.NewSMTP("smtp.gmail.com", "587", "rfsu vjub fnmm ditg", "golang.tester1974@gmail.com")
+
+
 	userRepository := repository.NewUserRepository(pool)
-	userService := service.NewUserService(userRepository)
+	userService := service.NewUserService(userRepository, cache, smtp)
 	userHandler := handler.NewUserHandler(userService)
 
 	middleware := handler.New(userRepository)
 
 	mux := http.NewServeMux()
 	mux.Handle("POST /register", http.HandlerFunc(userHandler.Register))
+	mux.Handle("POST /verify", http.HandlerFunc(userHandler.Verify))
 	mux.Handle("POST /login", http.HandlerFunc(userHandler.Login))
 	mux.Handle("POST /get/me", middleware.Auth(http.HandlerFunc(userHandler.GetMe)))
 	mux.Handle("PUT /update/me", middleware.Auth(http.HandlerFunc(userHandler.UpdateMe)))
