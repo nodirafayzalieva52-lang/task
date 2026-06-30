@@ -28,7 +28,6 @@ func main() {
 	cache := cache2.NewMemoryCache()
 	smtp := smtp2.NewSMTP("smtp.gmail.com", "587", "rfsu vjub fnmm ditg", "golang.tester1974@gmail.com")
 
-
 	userRepository := repository.NewUserRepository(pool)
 	userService := service.NewUserService(userRepository, cache, smtp)
 	userHandler := handler.NewUserHandler(userService)
@@ -53,6 +52,8 @@ func main() {
 	mux.Handle("PUT /users/change-password", middleware.Auth(http.HandlerFunc(userHandler.UpdateUserPassword)))
 	mux.Handle("PATCH /orders/{id}/cancel", middleware.Auth(http.HandlerFunc(userHandler.CancelOrder)))
 	mux.Handle("GET /users/profile", middleware.Auth(http.HandlerFunc(userHandler.GetUserAndOrders)))
+	mux.Handle("POST /auth/refresh", http.HandlerFunc(userHandler.Refresh))
+	mux.Handle("POST /auth/logout", http.HandlerFunc(userHandler.Logout))
 	
 	
 	server := &http.Server{

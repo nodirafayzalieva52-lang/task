@@ -68,27 +68,47 @@ func (s *UserService) Register(ctx context.Context, request models.RegisterReque
 	return nil
 }
 
-func (s *UserService) Login(ctx context.Context, request models.LoginRequest) (token string, err error) {
+func (s *UserService) Login(ctx context.Context, request models.LoginRequest) (response models.LoginResponse, err error) {
 	err = request.Validate()
 	if err != nil {
-		return "", err
+		return models.LoginResponse{}, err
 	}
 
 	user, err := s.repo.GetByEmail(ctx, request.Email)
 	if err != nil {
-		return "", err
+		return models.LoginResponse{}, err
 	}
 
 	err = password.Compare(user.Password, request.Password)
 	if err != nil {
-		return "", err
+		return models.LoginResponse{}, err
 	}
 
-	token, err = jwt.GenerateToken(user.ID, user.Email, user.Role)
+	accessToken, err := jwt.GenerateToken(user.ID, user.Email, user.Role)
 	if err != nil {
-		return "", err
+		return models.LoginResponse{}, err
 	}
-	return token, nil
+
+	refreshToken := utils.GenerateRand()
+	refreshTokenHash := utils.HashRefreshToken(refreshToken)
+
+	refreshTokenEntity := models.RefreshToken{
+		UserID:    int64(user.ID),
+		TokenHash: refreshTokenHash,
+		ExpiresAt: time.Now().Add(time.Hour * 24 * 7),
+	}
+
+	err = s.repo.AddRefreshToken(ctx, refreshTokenEntity)
+	if err != nil {
+		return models.LoginResponse{}, err
+	}
+
+	response = models.LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}
+
+	return response, nil
 }
 
 func (s *UserService) GetMe(ctx context.Context, userID int64) (user models.User, err error) {
@@ -276,7 +296,7 @@ func (s *UserService) Verify(ctx context.Context, request models.VerifyRequest) 
 		return errors.New("user not found")
 	}
 
-	user, ok := cacheInfo.(models.User) //type assertion interface -> models.User
+	user, ok := cacheInfo.(models.User)
 	if !ok {
 		return errors.New("user not found")
 	}
@@ -297,4 +317,62 @@ func (s *UserService) Verify(ctx context.Context, request models.VerifyRequest) 
 	}
 
 	return nil
+}
+
+func (s *UserService) Refresh(ctx context.Context, request models.RefreshRequest) (models.LoginResponse, error) {
+	// Валидируем входящий запрос
+	if err := request.Validate(); err != nil {
+		return models.LoginResponse{}, err
+	}
+
+	oldHash := utils.HashRefreshToken(request.RefreshToken)
+
+	storedToken, err := s.repo.GetRefreshToken(ctx, oldHash)
+	if err != nil {
+		return models.LoginResponse{}, errors.New("unauthorized: invalid refresh token")
+	}
+
+	if time.Now().After(storedToken.ExpiresAt) {
+		_ = s.repo.DeleteRefreshToken(ctx, oldHash)
+		return models.LoginResponse{}, errors.New("unauthorized: refresh token expired")
+	}
+
+	err = s.repo.DeleteRefreshToken(ctx, oldHash)
+	if err != nil {
+		return models.LoginResponse{}, err
+	}
+
+	user, err := s.repo.GetByID(ctx, storedToken.UserID)
+	if err != nil {
+		return models.LoginResponse{}, err
+	}
+
+	newAccessToken, err := jwt.GenerateToken(user.ID, user.Email, user.Role)
+	if err != nil {
+		return models.LoginResponse{}, err
+	}
+
+	newRawRefreshToken := utils.GenerateRand()
+	newHash := utils.HashRefreshToken(newRawRefreshToken)
+
+	newTokenModel := models.RefreshToken{
+		UserID:    storedToken.UserID,
+		TokenHash: newHash,
+		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+	}
+
+	err = s.repo.AddRefreshToken(ctx, newTokenModel)
+	if err != nil {
+		return models.LoginResponse{}, err
+	}
+
+	// 7. Вернуть клиенту новую пару
+	return models.LoginResponse{
+		AccessToken:  newAccessToken,
+		RefreshToken: newRawRefreshToken,
+	}, nil
+}
+
+func (s *UserService) DeleteToken(ctx context.Context, hash string) error {
+    return s.repo.DeleteRefreshToken(ctx, hash)
 }

@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 )
@@ -10,4 +12,9 @@ func GenerateOTP() string {
 		"%06d",
 		rand.Intn(1000000),
 	)
+}
+
+func HashRefreshToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
 }

@@ -100,3 +100,14 @@ func (r *VerifyRequest) Validate() error {
 	}
 	return nil
 }
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+func (r *RefreshRequest) Validate() error {
+	if r.RefreshToken == "" {
+		return errors.New("validation error: refresh_token is required")
+	}
+	return nil
+}

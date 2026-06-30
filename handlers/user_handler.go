@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	internalCtx "project/internal/context"
+	"project/internal/utils"
 	"project/internal/models"
 	"project/internal/service"
 )
@@ -43,17 +44,14 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.service.Login(r.Context(), req)
+	response, err := h.service.Login(r.Context(), req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	loginResponse := loginResp{
-		Token: token,
-	}
 
-	if err = json.NewEncoder(w).Encode(loginResponse); err != nil {
+	if err = json.NewEncoder(w).Encode(response); err != nil {
 		log.Println(err)
 	}
 
@@ -360,4 +358,47 @@ func (h *UserHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+	var req models.RefreshRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	res, err := h.service.Refresh(r.Context(), req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(res)
+}
+
+func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var req models.RefreshRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	tokenHash := utils.HashRefreshToken(req.RefreshToken)
+
+	err := h.service.DeleteToken(r.Context(), tokenHash) 
+	if err != nil {
+		http.Error(w, "failed to logout", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message": "successfully logged out"}`))
 }
