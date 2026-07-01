@@ -20,7 +20,7 @@ func main() {
 	defer cancel()
 	pool, err := pgxpool.New(ctx, fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s",
-		"localhost", 5432, "postgres", "20102010", "task"))
+		"localhost", 5432, "postgres", "20102010", "mydb"))
 	if err != nil {
 		log.Fatal("Failed to connect to database", err)
 	}

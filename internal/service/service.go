@@ -320,7 +320,6 @@ func (s *UserService) Verify(ctx context.Context, request models.VerifyRequest) 
 }
 
 func (s *UserService) Refresh(ctx context.Context, request models.RefreshRequest) (models.LoginResponse, error) {
-	// Валидируем входящий запрос
 	if err := request.Validate(); err != nil {
 		return models.LoginResponse{}, err
 	}
@@ -366,11 +365,12 @@ func (s *UserService) Refresh(ctx context.Context, request models.RefreshRequest
 		return models.LoginResponse{}, err
 	}
 
-	// 7. Вернуть клиенту новую пару
-	return models.LoginResponse{
+	response := models.LoginResponse{
 		AccessToken:  newAccessToken,
 		RefreshToken: newRawRefreshToken,
-	}, nil
+	}
+	
+	return response, nil
 }
 
 func (s *UserService) DeleteToken(ctx context.Context, hash string) error {
