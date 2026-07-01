@@ -375,7 +375,10 @@ func (h *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(res)
+	err = json.NewEncoder(w).Encode(res)
+	if err!=nil{
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
